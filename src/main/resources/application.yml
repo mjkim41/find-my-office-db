@@ -1,0 +1,65 @@
+server:
+  port: 8900
+
+spring:
+  # DB setting
+  # root 디렉토리에 .env 파일 만들어놓고, 아래 형식으로 환경변수로 저장
+  # DB_URL = jdbc:mariadb://localhost:3306/find_my_office
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  ### Spring JPA
+  jpa:
+    # database-platform : sql 구문을 날릴 때 뜽에 어떤 DB 언어를 기준으로 작성해야 될 것인지 갈피를 잡게 해 줌
+    #                       - org.hibernate는 Spring Data JPA 를 사용하면 기본적으로 딸려 오는 패키지임
+    database-platform: org.hibernate.dialect.MariaDB106Dialect
+    # Hibernate : ORM(Object-Relationap Mapping) 프레임 워크
+    hibernate:
+      # ddl
+      #  - create : 매번 테이블 drop 후 재생성
+      #  - update : alter table if exists tbl_product
+      #  - none : 아무것도 못함
+      ddl-auto: update
+    properties:
+      hibernate:
+        # format_sql : SQL 로그 찍힐 때, 줄 맞춰서 이쁘게 나오게
+        format_sql: true # SQL log
+    # 위에 database-platform 설정해줬으므로 생략해줘도 되긴 함
+    database: mysql
+    # controller 라우팅 설정
+    mvc:
+      view:
+        prefix: /WEB-INF/views/
+        suffix: .jsp
+    # 파일 크기 설정
+    servlet:
+      multipart:
+        max-file-size: 10MB
+        max-request-size: 100MB
+
+  # mybatis 설정
+  mybatis:
+    configuration:
+      map-underscore-to-camel-case: true
+    type-aliases-package: com.digital_nomad.find_my_office
+    mapper-locations: classpath:mapper/**/*.xml
+
+  logging:
+    level:
+      com:
+        digital_nomad:
+          find_my_office: debug
+
+# 업로드 이미지 저장 위치(c드라이브)
+file:
+  upload:
+    location: ${user.home}/find-my-office/uploads/
+
+  # 인가용 jwt 토큰
+  jwt:
+    secret-key: ${SECRET_KEY} # 토근 발급시와 토근 위조 검사시 사용할 서명
+    access-token-validity-time: 3600000  # 1시간
+    refresh-token-validity-time: 604800000 # 7일
+
