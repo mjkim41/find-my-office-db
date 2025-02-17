@@ -1,9 +1,11 @@
 package com.digital_nomad.find_my_office.domain.cafe.entity;
 
+import com.digital_nomad.find_my_office.repository.CafeRepository;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
 
@@ -18,9 +20,9 @@ import java.time.LocalDateTime;
 public class Address {
 
     @Id
-    @UuidGenerator(style = UuidGenerator.Style.TIME)
+    @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(name="address_id")
-    String id;
+    Long id;
 
     @Column(nullable = false)
     private Double latitude; // 경도
@@ -41,13 +43,13 @@ public class Address {
     private String administrativeDistrictName; // 행정동명
     private String legalDistrictCode; // 법정동코드
     private String legalDistrictName; // 법정동명
-    private int lotNumber; // 건물본번지(부번지) : 울산광역시 북구 매곡동 930-5에서 '930'
-    private int subLotNumber; // 건물부번지(번지) : 울산광역시 북구 매곡동 930-5에서 '5'
+    private String lotNumber; // 건물본번지(부번지) : 울산광역시 북구 매곡동 930-5에서 '930'
+    private String subLotNumber; // 건물부번지(번지) : 울산광역시 북구 매곡동 930-5에서 '5'
 
     // # 신주소 관련
     // 도로명 관련
     private String newAddressCode; // 도로명코드
-    private String newAddress; // 도로명주소
+    private String newAddress; // 도로명주소(full)
     // 우편번호
     private String newZipCode; // 신우편번호
 
@@ -58,12 +60,13 @@ public class Address {
     private String CityCode; // 시군구코드(도는 시, 광역시는 구)
     private String CityName; // 시군구명
     // 동, 호수, 층
-    private int dong; // 동정보
-    private int floor; // 층정보
-    private int ho; // 호정보
+    private String dong; // 동정보
+    private String floor; // 층정보
+    private String ho; // 호정보
 
     @CreationTimestamp
     LocalDateTime createdAt;
+
 
 
 }

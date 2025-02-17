@@ -1,18 +1,22 @@
 package com.digital_nomad.find_my_office.util;
 
+import com.digital_nomad.find_my_office.service.AddressService;
+import com.digital_nomad.find_my_office.domain.cafe.entity.Address;
+import com.digital_nomad.find_my_office.domain.cafe.entity.Cafe;
 import com.digital_nomad.find_my_office.exception.CsvParsingException;
 import com.digital_nomad.find_my_office.exception.ErrorCode;
+import com.digital_nomad.find_my_office.service.CafeService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -22,6 +26,12 @@ import java.util.stream.Collectors;
 @Component
 @Slf4j
 public class CsvParser implements CommandLineRunner {
+
+    @Autowired
+    private CafeService cafeService;
+
+    @Autowired
+    private AddressService addressService;
 
     // 프로젝트 실행 시, csv 파싱 메소드(parseStoresCsvFile)를 자동 호출하도록 설정
     @Override
@@ -57,9 +67,9 @@ public class CsvParser implements CommandLineRunner {
                 )
                 {
 
-                    // 헤더 출력
+                    // 테스트용 칼럼명 디버그
                     Map<String, Integer> headerMap = allStoresRecords.getHeaderMap();
-                    System.out.println(headerMap.keySet());
+                    log.debug(headerMap.keySet().toString());
 
                     // (4) (Apache common csv 라이브러리) CSVParserser.getRecords()로 모든 행 반환 후,
                     //     상권업종소분류명이 카페인 업체만 필터링
@@ -69,35 +79,12 @@ public class CsvParser implements CommandLineRunner {
                             .collect(Collectors.toList());
 
                     coffeeShops.forEach(coffee -> {
-                        // 카페 entity
-                        String cafeId = coffee.get("상가업소번호");
-                        String cafeName = coffee.get("상호명");
-                        String branchName = coffee.get("지점명");
-
-                        // 주소  entity
-                        String latitude = coffee.get("경도");
-                        String longtitude = coffee.get("위도");
-                        String oldZipCode = coffee.get("구우편번호");
-                        String oldAddress = coffee.get("지번주소");
-                        String adminDistrictCode = coffee.get("행정동코드");
-                        String administrativeDistrictName = coffee.get("행정동명");
-                        String legalDistrictCode = coffee.get("법정동코드");
-                        String legalDistrictName = coffee.get("법정동명");
-                        String lotNumber = coffee.get("건물본번지");
-                        String subLotNumber = coffee.get("건물부번지");
-                        String newAddressCode = coffee.get("도로명코드");
-                        String newAddress = coffee.get("도로명");
-                        String newZipCode = coffee.get("신우편번호");
-                        String ProvinceCode = coffee.get("시도코드");
-                        String ProvinceName = coffee.get("시도명");
-                        String CityCode = coffee.get("시군구코드");
-                        String CityName = coffee.get("시군구명");
-                        String dong = coffee.get("동정보");
-                        String floor = coffee.get("층정보");
-                        String ho = coffee.get("호정보");
-
-
-
+                        // 주소  entity 생성 및 저장
+                        Address cafeAddress = creatAddressEntity(coffee);
+//                        cafeAddress = addressService.regularAddressDbUpdate(cafeAddress); // 위도 +경도 조합 없을 때만 저장
+                        // 카페 entity 생성 및 db 저장
+                        Cafe cafeEntity = createCafeEntity(coffee, cafeAddress);
+                        cafeService.regularCafeDbUpdate(cafeEntity);
                     });
 
                     log.info("CSV file parsing completed: {}", csvFile.getFilename());
@@ -107,11 +94,45 @@ public class CsvParser implements CommandLineRunner {
                     log.error("Error occurred while parsing CSV file: {}", csvFile.getFilename(), e);
                     throw new RuntimeException(e);
                 }
-
-
             }
 
 
+    }
+
+    private Address creatAddressEntity(CSVRecord coffee) {
+
+        return Address.builder()
+                .latitude(Double.valueOf(coffee.get("경도")))
+                .longitude(Double.valueOf(coffee.get("위도")))
+                .oldZipCode(coffee.get("구우편번호"))
+                .oldAddress(coffee.get("지번주소"))
+                .adminDistrictCode(coffee.get("행정동코드"))
+                .administrativeDistrictName(coffee.get("행정동명"))
+                .legalDistrictCode(coffee.get("법정동코드"))
+                .legalDistrictName(coffee.get("법정동명"))
+                .lotNumber(coffee.get("건물본번지"))
+                .subLotNumber(coffee.get("건물부번지"))
+                .newAddressCode(coffee.get("도로명코드"))
+                .newAddress(coffee.get("도로명"))
+                .newZipCode(coffee.get("신우편번호"))
+                .ProvinceCode(coffee.get("시도코드"))
+                .ProvinceName(coffee.get("시도명"))
+                .CityCode(coffee.get("시군구코드"))
+                .CityName(coffee.get("시군구명"))
+                .dong(coffee.get("동정보"))
+                .floor(coffee.get("층정보"))
+                .ho(coffee.get("호정보"))
+                .build();
+
+    }
+
+    private Cafe createCafeEntity(CSVRecord coffee, Address cafeAddress) {
+        return Cafe.builder()
+                .id(coffee.get("상가업소번호"))
+                .name(coffee.get("상호명"))
+                .branchName(coffee.get("지점명"))
+                .address(cafeAddress)
+                .build();
     }
 
     // # data 폴더에서 csv 파일을 추출하는 메소드
