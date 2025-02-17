@@ -7,6 +7,7 @@ spring:
   # DB_URL = jdbc:mariadb://localhost:3306/find_my_office
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
+#    url: jdbc:mariadb://localhost:3306/find_my_office
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
@@ -21,7 +22,7 @@ spring:
       #  - create : 매번 테이블 drop 후 재생성
       #  - update : alter table if exists tbl_product
       #  - none : 아무것도 못함
-      ddl-auto: update
+      ddl-auto: create
     properties:
       hibernate:
         # format_sql : SQL 로그 찍힐 때, 줄 맞춰서 이쁘게 나오게

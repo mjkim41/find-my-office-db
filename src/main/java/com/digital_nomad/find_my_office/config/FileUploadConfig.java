@@ -1,4 +1,4 @@
-package com.remote_workers.find_my_office.config;
+package com.digital_nomad.find_my_office.config;
 
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
