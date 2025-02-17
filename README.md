@@ -7,3 +7,4 @@
 -  ## csv 파일 커서 압축파일로 저장!!!
 
 - ## zip 파일 다운로드 방법(csv)
+- https://www.data.go.kr/data/15083033/fileData.do
