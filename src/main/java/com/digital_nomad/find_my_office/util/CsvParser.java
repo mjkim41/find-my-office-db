@@ -13,7 +13,9 @@ import org.springframework.stereotype.Component;
 
 import java.io.*;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 // 소상공인진흥공단(SBIZ) 상가정보 CSV 파일을 PARSE 하는 클래스
 // CommandLinerRunner : 애플리케이션 실행 시 자동 csv parse 하도록
@@ -34,7 +36,7 @@ public class CsvParser implements CommandLineRunner {
       - 로직 : (1) PatchMatchinfResourcePatternResolver.getResource()로 data 폴더에 있는 csv 파일 추출
               (2) 파일을 input stream 으로 변환
               (2) 문자 스트림(reader)로 변환
-              (4) csv 파일 파싱(CSVParser) - apache common csv 라이브러리
+              (4) csv 파일 파싱(CSVParser.getRecords()) - apache common csv 라이브러리
      */
     private void parseStoresCsvFile() throws IOException {
 
@@ -59,80 +61,47 @@ public class CsvParser implements CommandLineRunner {
                     Map<String, Integer> headerMap = allStoresRecords.getHeaderMap();
                     System.out.println(headerMap.keySet());
 
-                    // 몇 줄만 출력하는 용
-                    Iterator<CSVRecord> record = allStoresRecords.iterator();
+                    // (4) (Apache common csv 라이브러리) CSVParserser.getRecords()로 모든 행 반환 후,
+                    //     상권업종소분류명이 카페인 업체만 필터링
+                    List<CSVRecord> records = allStoresRecords.getRecords();
+                    List<CSVRecord> coffeeShops = records.stream()
+                            .filter(record -> "카페".equals(record.get("상권업종소분류명")))
+                            .collect(Collectors.toList());
 
-                    // 테스트용 출력
-                    int i = 0;
-                    while (record.hasNext() && i < 50)  {
+                    coffeeShops.forEach(coffee -> {
+                        // 카페 entity
+                        String cafeId = coffee.get("상가업소번호");
+                        String cafeName = coffee.get("상호명");
+                        String branchName = coffee.get("지점명");
 
-                        CSVRecord tuple = record.next();
+                        // 주소  entity
+                        String latitude = coffee.get("경도");
+                        String longtitude = coffee.get("위도");
+                        String oldZipCode = coffee.get("구우편번호");
+                        String oldAddress = coffee.get("지번주소");
+                        String adminDistrictCode = coffee.get("행정동코드");
+                        String administrativeDistrictName = coffee.get("행정동명");
+                        String legalDistrictCode = coffee.get("법정동코드");
+                        String legalDistrictName = coffee.get("법정동명");
+                        String lotNumber = coffee.get("건물본번지");
+                        String subLotNumber = coffee.get("건물부번지");
+                        String newAddressCode = coffee.get("도로명코드");
+                        String newAddress = coffee.get("도로명");
+                        String newZipCode = coffee.get("신우편번호");
+                        String ProvinceCode = coffee.get("시도코드");
+                        String ProvinceName = coffee.get("시도명");
+                        String CityCode = coffee.get("시군구코드");
+                        String CityName = coffee.get("시군구명");
+                        String dong = coffee.get("동정보");
+                        String floor = coffee.get("층정보");
+                        String ho = coffee.get("호정보");
 
-                        // 카페인 것만 필터링
-                        if (tuple.get("상권업종소분류명").equals("카페")) {
-                            String 상가업소번호 = tuple.get("상가업소번호");
-                            String 상호명 = tuple.get("상호명");
-                            String 지점명 = tuple.get("지점명");
-                            String 상권업종대분류코드 = tuple.get("상권업종대분류코드");
-                            String 상권업종대분류명 = tuple.get("상권업종대분류명");
-                            String 상권업종중분류코드 = tuple.get("상권업종중분류코드");
-                            String 상권업종중분류명 = tuple.get("상권업종중분류명");
-                            String 상권업종소분류코드 = tuple.get("상권업종소분류코드");
-                            String 상권업종소분류명 = tuple.get("상권업종소분류명");
-                            String 표준산업분류코드 = tuple.get("표준산업분류코드");
-                            String 표준산업분류명 = tuple.get("표준산업분류명");
-                            String 시도코드 = tuple.get("시도코드");
-                            String 시도명 = tuple.get("시도명");
-                            String 시군구코드 = tuple.get("시군구코드");
-                            String 시군구명 = tuple.get("시군구명");
-                            String 행정동코드 = tuple.get("행정동코드");
-                            String 행정동명 = tuple.get("행정동명");
-                            String 법정동코드 = tuple.get("법정동코드");
-                            String 법정동명 = tuple.get("법정동명");
-                            String 지번코드 = tuple.get("지번코드");
-                            String 대지구분코드 = tuple.get("대지구분코드");
-                            String 대지구분명 = tuple.get("대지구분명");
-                            String 지번본번지 = tuple.get("지번본번지");
-                            String 지번부번지 = tuple.get("지번부번지");
-                            String 지번주소 = tuple.get("지번주소");
-                            String 도로명코드 = tuple.get("도로명코드");
-                            String 도로명 = tuple.get("도로명");
-                            String 건물본번지 = tuple.get("건물본번지");
-                            String 건물부번지 = tuple.get("건물부번지");
-                            String 건물관리번호 = tuple.get("건물관리번호");
-                            String 건물명 = tuple.get("건물명");
-                            String 도로명주소 = tuple.get("도로명주소");
-                            String 구우편번호 = tuple.get("구우편번호");
-                            String 신우편번호 = tuple.get("신우편번호");
-                            String 동정보 = tuple.get("동정보");
-                            String 층정보 = tuple.get("층정보");
-                            String 호정보 = tuple.get("호정보");
-                            String 경도 = tuple.get("경도");
-                            String 위도 = tuple.get("위도");
 
-                            // 각 변수에 대한 값 출력
-                            System.out.println("상가업소번호: " + 상가업소번호 +
-                                    ", 상호명: " + 상호명 +
-                                    ", 지점명: " + 지점명 +
-                                    ", 상권업종대분류코드: " + 상권업종대분류코드 +
-                                    ", 상권업종대분류명: " + 상권업종대분류명 +
-                                    ", 상권업종중분류코드: " + 상권업종중분류코드 +
-                                    ", 상권업종중분류명: " + 상권업종중분류명 +
-                                    ", 상권업종소분류코드: " + 상권업종소분류코드 +
-                                    ", 상권업종소분류명: " + 상권업종소분류명 +
-                                    ", 표준산업분류코드: " + 표준산업분류코드 +
-                                    ", 표준산업분류명: " + 표준산업분류명);
 
-                            System.out.println("========================"); // 한 줄 띄우기
-                            System.out.println();
-
-                        }
-
-                        i++;
-
-                    }
+                    });
 
                     log.info("CSV file parsing completed: {}", csvFile.getFilename());
+
 
                 } catch (IOException e) {
                     log.error("Error occurred while parsing CSV file: {}", csvFile.getFilename(), e);
