@@ -35,6 +35,11 @@ dependencies {
 	implementation 'org.apache.commons:commons-csv:1.8'
 	// 환경변수 설정용(.env)
 	implementation 'io.github.cdimascio:dotenv-java:3.0.0'
+	// QueryDSL 의존성 추가
+	implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
+	annotationProcessor 'com.querydsl:querydsl-apt:5.0.0:jakarta'
+	annotationProcessor 'jakarta.annotation:jakarta.annotation-api'
+	annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
 
 }
 

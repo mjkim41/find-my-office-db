@@ -7,7 +7,6 @@ spring:
   # DB_URL = jdbc:mariadb://localhost:3306/find_my_office
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-#    url: jdbc:mariadb://localhost:3306/find_my_office
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}

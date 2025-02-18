@@ -26,12 +26,17 @@ public class Cafe {
 
     String branchName; //지점명
 
-    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "address_id")
     private Address address; // 주소 정보 저장 객체
 
     @CreationTimestamp
     LocalDateTime createdAt;
+
+    public void changeAddress(Address address) {
+        this.address = address;
+        address.getCafes().add(this);
+    }
 
 
 }

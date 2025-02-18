@@ -9,7 +9,8 @@ import java.util.Optional;
 @Repository
 public interface AddressRepository extends JpaRepository<Address, String> {
 
-    // 위도와 경도 조합이 존재하는지 확인(중복 저장 방지)
-    Optional<Address> findByLatitudeAndLongitude(Double latitude, Double longitude);
+    // 존재하는지 주소 Entity 존재하는지 확인(중복 저장 방지)
+    // 지번주소 + 동 + 호로 확인
+    Optional<Address> findByOldAddressAndDongAndHo(String oldAddress, String dong, String ho);
 
 }

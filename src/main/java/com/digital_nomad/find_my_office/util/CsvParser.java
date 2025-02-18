@@ -57,7 +57,8 @@ public class CsvParser implements CommandLineRunner {
         // 각각의 csvFile에 대하여 parsing
             for (Resource csvFile : csvFiles) {
 
-                log.info("Reading CSV file: {}", csvFile.getFilename());
+                String filename = csvFile.getFilename(); // 로그용
+                log.info("Reading CSV file: {}",filename);
 
                 try (
                         InputStream inputStream = csvFile.getInputStream(); // (2)
@@ -66,7 +67,6 @@ public class CsvParser implements CommandLineRunner {
                         CSVParser allStoresRecords  = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader()); // (3)
                 )
                 {
-
                     // 테스트용 칼럼명 디버그
                     Map<String, Integer> headerMap = allStoresRecords.getHeaderMap();
                     log.debug(headerMap.keySet().toString());
@@ -78,25 +78,30 @@ public class CsvParser implements CommandLineRunner {
                             .filter(record -> "카페".equals(record.get("상권업종소분류명")))
                             .collect(Collectors.toList());
 
-                    coffeeShops.forEach(coffee -> {
-                        // 주소  entity 생성 및 저장
-                        Address cafeAddress = creatAddressEntity(coffee);
-//                        cafeAddress = addressService.regularAddressDbUpdate(cafeAddress); // 위도 +경도 조합 없을 때만 저장
-                        // 카페 entity 생성 및 db 저장
-                        Cafe cafeEntity = createCafeEntity(coffee, cafeAddress);
-                        cafeService.regularCafeDbUpdate(cafeEntity);
-                    });
-
-                    log.info("CSV file parsing completed: {}", csvFile.getFilename());
-
+                    // (5) Entity로 만들어 DB 업데이트
+                    regularDbUpdate(coffeeShops, filename);
 
                 } catch (IOException e) {
                     log.error("Error occurred while parsing CSV file: {}", csvFile.getFilename(), e);
                     throw new RuntimeException(e);
                 }
             }
+    }
 
+    /**
+     * csv 파일의 카페 정보를 CSVRecord -> Entity 변환 -> DB 저장
+     * @param coffeeShops - csv 파일에서 카페업종만 필터링된 상점 정보
+     * @param filename - csv 파일 이름(로그용)
+     */
+    private void regularDbUpdate(List<CSVRecord> coffeeShops, String filename) throws IOException {
+        coffeeShops.forEach(coffee -> {
+            // entity 생성
+            Address address = creatAddressEntity(coffee);
+            Cafe cafe = createCafeEntity(coffee); // 주소는 db 중복 저장을 방지 하기 위해 나중에 세팅
+            cafeService.doRegularDbUpdate(cafe, address);
+        });
 
+        log.info("CSV file parsing completed: {}", filename);
     }
 
     private Address creatAddressEntity(CSVRecord coffee) {
@@ -110,10 +115,10 @@ public class CsvParser implements CommandLineRunner {
                 .administrativeDistrictName(coffee.get("행정동명"))
                 .legalDistrictCode(coffee.get("법정동코드"))
                 .legalDistrictName(coffee.get("법정동명"))
-                .lotNumber(coffee.get("건물본번지"))
-                .subLotNumber(coffee.get("건물부번지"))
                 .newAddressCode(coffee.get("도로명코드"))
                 .newAddress(coffee.get("도로명"))
+                .lotNumber(coffee.get("건물본번지"))
+                .subLotNumber(coffee.get("건물부번지"))
                 .newZipCode(coffee.get("신우편번호"))
                 .ProvinceCode(coffee.get("시도코드"))
                 .ProvinceName(coffee.get("시도명"))
@@ -126,12 +131,11 @@ public class CsvParser implements CommandLineRunner {
 
     }
 
-    private Cafe createCafeEntity(CSVRecord coffee, Address cafeAddress) {
+    private Cafe createCafeEntity(CSVRecord coffee) {
         return Cafe.builder()
                 .id(coffee.get("상가업소번호"))
                 .name(coffee.get("상호명"))
                 .branchName(coffee.get("지점명"))
-                .address(cafeAddress)
                 .build();
     }
 
