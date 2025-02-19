@@ -21,7 +21,7 @@ spring:
       #  - create : 매번 테이블 drop 후 재생성
       #  - update : alter table if exists tbl_product
       #  - none : 아무것도 못함
-      ddl-auto: create
+      ddl-auto: update
     properties:
       hibernate:
         # format_sql : SQL 로그 찍힐 때, 줄 맞춰서 이쁘게 나오게
