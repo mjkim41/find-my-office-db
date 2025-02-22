@@ -12,7 +12,10 @@ public enum ErrorCode {
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected server error"),
 
     // 전국 상가정보 csv parsing 관련 에러
-    CSV_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "No CSV files found in /data directory. Please refer to the README.md for downloading csv files.");
+    CSV_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "No CSV files found in /data directory. Please refer to the README.md for downloading csv files."),
+
+    // crwaling Exception
+    REVIEW_BUTTON_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "Review button not found");
 
     private final HttpStatus httpStatus;
     private final String errorMessage;
