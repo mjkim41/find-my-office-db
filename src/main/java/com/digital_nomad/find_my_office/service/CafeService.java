@@ -2,12 +2,14 @@ package com.digital_nomad.find_my_office.service;
 
 import com.digital_nomad.find_my_office.domain.cafe.entity.Address;
 import com.digital_nomad.find_my_office.domain.cafe.entity.Cafe;
+import com.digital_nomad.find_my_office.repository.AddressRepository;
 import com.digital_nomad.find_my_office.repository.CafeRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -20,6 +22,10 @@ public class CafeService {
 
     @Autowired
     private AddressService addressService;
+
+    public CafeService(CafeRepository cafeRepository) {
+        this.cafeRepository = cafeRepository;
+    }
 
     // # 카페 정보를 전달해주면, DB에 저장하는 로직
     public void doRegularDbUpdate(Cafe cafe, Address address) {
@@ -54,5 +60,10 @@ public class CafeService {
             cafeRepository.save(cafe);
         }
 
+    }
+
+    // 특정 시도(광역시 :시, 나머지: 도)에 속한 카페 리스트 반환
+    public List<Cafe> getCafeByProvinceName(String provinceName) {
+        return cafeRepository.findByAddress_ProvinceName(provinceName);
     }
 }

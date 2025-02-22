@@ -3,7 +3,7 @@ server:
 
 # 첫 실행여부 설정(csv parser 실행용)
 first-run:
-  enabled: true
+  enabled: false
 
 spring:
   # DB setting
