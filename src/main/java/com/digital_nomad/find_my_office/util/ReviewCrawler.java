@@ -1,9 +1,7 @@
 package com.digital_nomad.find_my_office.util;
 
-import com.digital_nomad.find_my_office.domain.cafe.entity.Cafe;
 import com.digital_nomad.find_my_office.exception.CrwalingException;
 import com.digital_nomad.find_my_office.exception.ErrorCode;
-import com.digital_nomad.find_my_office.repository.CafeRepository;
 import com.digital_nomad.find_my_office.service.CafeService;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -14,8 +12,13 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -28,9 +31,49 @@ import java.util.NoSuchElementException;
 // 리뷰 크롤링을 위해 WebDriver 불러오는 클래스
 @Slf4j
 @RequiredArgsConstructor
-public class ReviewCrawler {
+@Component
+public class ReviewCrawler implements CommandLineRunner {
+
+    // 처음 실행여부를 관리하기 위한 파일 경로 (com.digital_nomad.find_my_office.isFirstRun 위치에 저장)
+    private static final String REVIEW_CRAWLING_EXECUTED = "src/main/java/com/digital_nomad/find_my_office/isFirstRun/reviewCrawlingExecuted.txt";
 
     private final CafeService cafeService;
+
+    // 어프리케이션 실행 시 txt 파일 실행 여부에 따라, txt 파일 없으면(=처음 실행히면) 리뷰 크롤링 하도록 설정
+    @Override
+    public void run(String... args) throws Exception {
+
+        // 1. 파일이 이미 존재하는지 확인(초기 실행시는 파일 없고, 그다음부터는 파일 생성되어 있음)
+        File flag = new File(REVIEW_CRAWLING_EXECUTED);
+
+        // 2. 파일이 존재하지 않으면 처음 실행인 것으로 판단하고 처리
+        if (!flag.exists()) {
+            setUpAndStartCrawling();
+            createReviewCrawlingFlagFile(flag); //review crwaling 끝난 후에, 완료 증거로 file 생성 -> 다음부터는 csv parsing 과정 생략됨
+            log.info("===========");
+            log.info("===========");
+            log.info("===파일 없음========");
+            log.info("===========");
+            log.info("===========");
+        } else {
+            // 이미 실행된 경우 메시지 출력
+            log.info("Review crawling already completed.");
+            log.info("===========");
+            log.info("===========");
+            log.info("=====파일 이미 있음======");
+            log.info("===========");
+            log.info("===========");
+        }
+    }
+
+    private void createReviewCrawlingFlagFile(File flagFile) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(flagFile))) {
+            writer.write("review crawling finished");
+        } catch (IOException e) {
+            log.error("Error while creating the review crawling flag file.", e);
+            e.printStackTrace();
+        }
+    }
 
     public static WebDriver getDriver() {
 
@@ -50,6 +93,8 @@ public class ReviewCrawler {
         return new ChromeDriver(options);
     }
 
+
+
     // ## 테스트용
     static class StoreForTest {
 
@@ -64,8 +109,7 @@ public class ReviewCrawler {
     }
 
     @SneakyThrows
-    public static void main(String[] args) throws Exception {
-
+    public void setUpAndStartCrawling() {
 
         // 테스트용 : 크롤링할 업체 목록
         List<StoreForTest> stores = new ArrayList<>();
@@ -236,6 +280,7 @@ public class ReviewCrawler {
             } else {
                 return false;
             }
+        // 이미지 없을 때 발생하는 에러
         } catch (TimeoutException | InterruptedException e) {
             log.info("No images found within the specified wait time.");
             return false;
