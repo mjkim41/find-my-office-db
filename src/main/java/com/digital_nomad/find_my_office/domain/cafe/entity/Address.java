@@ -56,10 +56,10 @@ public class Address {
 
     // # 공통
     // 시, 도, 구
-    private String ProvinceCode; // 시도코드(도는 도, 광역시는 시)
-    private String ProvinceName; // 시도명
-    private String CityCode; // 시군구코드(도는 시, 광역시는 구)
-    private String CityName; // 시군구명
+    private String provinceCode; // 시도코드(도는 도, 광역시는 시)
+    private String provinceName; // 시도명
+    private String cityCode; // 시군구코드(도는 시, 광역시는 구)
+    private String cityName; // 시군구명
     // 동, 호수, 층
     private String dong; // 동정보
     private String floor; // 층정보

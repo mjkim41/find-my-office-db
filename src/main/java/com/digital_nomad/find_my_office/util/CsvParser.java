@@ -28,26 +28,44 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CsvParser implements CommandLineRunner {
 
+    // 처음 실행여부를 관리하기 위한 파일 경로 (com.digital_nomad.find_my_office.isFirstRun 위치에 저장)
+    private static final String CSV_PARSER_EXECUTED = "src/main/java/com/digital_nomad/find_my_office/isFirstRun/CsvParserExecuted.txt";
+
     @Autowired
     private CafeService cafeService;
 
     @Autowired
     private AddressService addressService;
 
-    // git clone 받아 처음 실행하는지 여부 확인(처음 실행할 때만 properties 값 true)
-    @Value("${first-run.enabled}")
-    private boolean firstRun;
-
     // 프로젝트 실행 시, csv 파싱 메소드(parseStoresCsvFile)를 자동 호출하도록 설정
     @Override
     public void run(String... args) throws Exception {
-        // application.properties의 first-run.enable 값을 확인하여(처음 실행시에만 true로 세팅, 이후에는 false로 변경)
-        // 첫 실행 시에만 csv file parsing
-        if (firstRun) {
+
+        // 1. 파일이 이미 존재하는지 확인(초기 실행시는 파일 없고, 그다음부터는 파일 생성되어 있음)
+        File flag = new File(CSV_PARSER_EXECUTED);
+
+        // 2. 파일이 존재하지 않으면 처음 실행인 것으로 판단하고 처리
+        if (!flag.exists()) {
             parseStoresCsvFile();
+            createCsvParsedFlagFile(flag); // csv parsing 끝난 후에, 완료 증거로 file 생성 -> 다음부터는 csv parsing 과정 생략됨
         } else {
-            log.info("CSV parsing already completed");
+            // 이미 실행된 경우 메시지 출력
+            log.info("CSV parsing already completed.");
         }
+    }
+
+    private void createCsvParsedFlagFile(File flagFile) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(flagFile))) {
+            writer.write("csv parsed");
+        } catch (IOException e) {
+            log.error("Error while creating the CSV parsed flag file.", e);
+            e.printStackTrace();
+        }
+    }
+
+    // csv parser 처음 실행 후, 두번째 실행부터는 실행안되게 application 설정을 바꿔주는 메소드
+    private void updateFirstRunFlag() {
+
     }
 
     /*
@@ -132,10 +150,10 @@ public class CsvParser implements CommandLineRunner {
                 .lotNumber(coffee.get("건물본번지"))
                 .subLotNumber(coffee.get("건물부번지"))
                 .newZipCode(coffee.get("신우편번호"))
-                .ProvinceCode(coffee.get("시도코드"))
-                .ProvinceName(coffee.get("시도명"))
-                .CityCode(coffee.get("시군구코드"))
-                .CityName(coffee.get("시군구명"))
+                .provinceCode(coffee.get("시도코드"))
+                .provinceName(coffee.get("시도명"))
+                .cityCode(coffee.get("시군구코드"))
+                .cityName(coffee.get("시군구명"))
                 .dong(coffee.get("동정보"))
                 .floor(coffee.get("층정보"))
                 .ho(coffee.get("호정보"))

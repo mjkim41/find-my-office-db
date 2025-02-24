@@ -12,6 +12,11 @@
 ### 2. 소상공인 진흥공단 상권정보를 다운받아, src > resources > data에 저장
  - 소상공인 진흥공단 상권정보(2025.01) : https://www.data.go.kr/data/15083033/fileData.do
 
+### 3. main > java > com > digital_nomad > find_my_office > isFirstRun > csvParserExecuted.txt 삭제 -> 어플리케이션 실행
+ - flag용 파일로, 해당 파일 없어야 처음 어플리케이션 실행 시 소상공인 진흥공단 상권정보 파일 csv parsing -> DB에 저장됨
+
+### 4. 3번 과정 끝난 후, main > java > com > digital_nomad > find_my_office > isFirstRun > reviewCrawlingExecuted.txt 삭제 -> 어플리케이션 재실행 
+- flag용 파일로, 해당 파일 없어야 처음 어플리케이션 실행 시 리뷰 크롤링 -> DB에 저장됨
 
 ## 트러블 슈팅
 1. 일하기 좋은 카페 수집 방법
