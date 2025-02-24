@@ -13,8 +13,12 @@ import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -27,6 +31,7 @@ import java.util.NoSuchElementException;
 // 리뷰 크롤링을 위해 WebDriver 불러오는 클래스
 @Slf4j
 @RequiredArgsConstructor
+@Component
 public class ReviewCrawler implements CommandLineRunner {
 
     // 처음 실행여부를 관리하기 위한 파일 경로 (com.digital_nomad.find_my_office.isFirstRun 위치에 저장)
@@ -43,14 +48,32 @@ public class ReviewCrawler implements CommandLineRunner {
 
         // 2. 파일이 존재하지 않으면 처음 실행인 것으로 판단하고 처리
         if (!flag.exists()) {
-            parseStoresCsvFile();
-            createCsvParsedFlagFile(flag); // csv parsing 끝난 후에, 완료 증거로 file 생성 -> 다음부터는 csv parsing 과정 생략됨
+            setUpAndStartCrawling();
+            createReviewCrawlingFlagFile(flag); //review crwaling 끝난 후에, 완료 증거로 file 생성 -> 다음부터는 csv parsing 과정 생략됨
+            log.info("===========");
+            log.info("===========");
+            log.info("===파일 없음========");
+            log.info("===========");
+            log.info("===========");
         } else {
             // 이미 실행된 경우 메시지 출력
-            log.info("CSV parsing already completed.");
+            log.info("Review crawling already completed.");
+            log.info("===========");
+            log.info("===========");
+            log.info("=====파일 이미 있음======");
+            log.info("===========");
+            log.info("===========");
         }
     }
 
+    private void createReviewCrawlingFlagFile(File flagFile) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(flagFile))) {
+            writer.write("review crawling finished");
+        } catch (IOException e) {
+            log.error("Error while creating the review crawling flag file.", e);
+            e.printStackTrace();
+        }
+    }
 
     public static WebDriver getDriver() {
 
@@ -86,8 +109,7 @@ public class ReviewCrawler implements CommandLineRunner {
     }
 
     @SneakyThrows
-    public static void main(String[] args) throws Exception {
-
+    public void setUpAndStartCrawling() {
 
         // 테스트용 : 크롤링할 업체 목록
         List<StoreForTest> stores = new ArrayList<>();
