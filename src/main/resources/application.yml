@@ -7,9 +7,12 @@ spring:
   # DB_URL = jdbc:mariadb://localhost:3306/find_my_office
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:mariadb://localhost:3306/find_my_office
+    username: root
+    password: mariadb
+#    url: ${DB_URL}
+#    username: ${DB_USERNAME}
+#    password: ${DB_PASSWORD}
   ### Spring JPA
   jpa:
     # database-platform : sql 구문을 날릴 때 뜽에 어떤 DB 언어를 기준으로 작성해야 될 것인지 갈피를 잡게 해 줌
