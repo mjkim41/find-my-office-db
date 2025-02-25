@@ -10,7 +10,6 @@ import java.util.List;
 public interface CafeRepositoryCustom {
 
     public void updateExistingCafe(Long addressId, String cafeId);
-
     public List<Cafe> findByAddressProvinceName(String provinceName);
 
 }

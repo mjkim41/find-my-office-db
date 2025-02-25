@@ -259,20 +259,16 @@ public class ReviewCrawler implements CommandLineRunner {
                 ReviewImage savedReviewImage = reviewImageService.save(reviewImage);
 
                 // review 엔터티에서 reviewImage 갈아주기
-                log.info("여기인가333333");
                 Review targetReview = reviewService.findByIdWithReviewImages(foundReview.getId());
                 log.info("{}", targetReview.getReviewImages());
                 List<ReviewImage> priorReviewImages = targetReview.getReviewImages();
                 priorReviewImages.add(reviewImageRepository.findById(savedReviewImage.getId()).orElseThrow());
                 log.info("{}", priorReviewImages);
-                log.info("여기인가4444");
 
                 reviewService.findByIdWithReviewImages(foundReview.getId())
                         .setReviewImages(priorReviewImages);
                 // 변경 사항을 데이터베이스에 반영하기 위해 리뷰 엔터티 다시 저장
-                log.info("여기인가 555");
                 reviewService.save(foundReview);
-                log.info("오예");
             });
 
         }

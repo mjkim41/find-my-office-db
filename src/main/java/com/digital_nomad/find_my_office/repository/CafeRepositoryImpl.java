@@ -51,6 +51,7 @@ public class CafeRepositoryImpl implements CafeRepositoryCustom {
                 .innerJoin(cafe.address, address)
                 .fetchJoin()
                 .where(address.provinceName.eq(provinceName))
+                .orderBy(cafe.id.asc())
                 .fetch();
 
         return fetch;
