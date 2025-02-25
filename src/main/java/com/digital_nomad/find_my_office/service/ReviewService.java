@@ -4,6 +4,8 @@ import com.digital_nomad.find_my_office.domain.cafe.entity.Review;
 import com.digital_nomad.find_my_office.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,5 +26,12 @@ public class ReviewService {
     public Optional<Review> findById(Long id) {
         return reviewRepository.findById(id);
     }
+
+    public Review findByIdWithReviewImages(Long id) {
+        return reviewRepository.findByIdWithReviewImages(id);
+    }
+
+
+
 
 }
