@@ -13,9 +13,12 @@ import com.digital_nomad.find_my_office.service.CafeService;
 import com.digital_nomad.find_my_office.service.ReviewImageService;
 import com.digital_nomad.find_my_office.service.ReviewService;
 import com.digital_nomad.find_my_office.service.ReviewStatusService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Hibernate;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -24,6 +27,7 @@ import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -55,6 +59,8 @@ public class ReviewCrawler implements CommandLineRunner {
     private final ReviewImageService reviewImageService;
     private final ReviewImageRepository reviewImageRepository;
     private final ReviewStatusRepository reviewStatusRepository;
+    @PersistenceContext
+    private EntityManager entityManager;
 
     // 어프리케이션 실행 시 txt 파일 실행 여부에 따라, txt 파일 없으면(=처음 실행히면) 리뷰 크롤링 하도록 설정
     @Override
@@ -205,16 +211,23 @@ public class ReviewCrawler implements CommandLineRunner {
 
         Cafe foundCafe = cafeRepository.findById(cafe.getId()).orElseThrow();
 
-        log.info("saving review crwaling status to DB : {}", cafe.getName());
-        // review status db 저장
-        ReviewCrawlingStatus reviewCrawlingStatus = ReviewCrawlingStatus.builder()
-                .isReviewed(true)
-                .cafeExists(true) // 이 단계까지 온 cafe는 naver place에 존재하는 카페
-                .reviews(null) // ! reviews 만들고 뒤에서 세팅할 것임
-                .cafe(foundCafe) // cafe 그대로 넣어주면 중복 에러 발생
-                .build();
+        // 가게 별 첫번째 DB인지 확인
+        ReviewCrawlingStatus savedReviewCrawlingStatus;
 
-        ReviewCrawlingStatus savedReviewCrawlingStatus = reviewStatusService.saveReviewCrawlingStatus(foundCafe, true);
+        if (!reviewStatusService.existsByCafeAndIsReviewed(foundCafe, true)) {
+             // review status db 저장
+            log.info("saving review crawling status to DB : {}", cafe.getName());
+            ReviewCrawlingStatus newReviewCrawlingStatus = ReviewCrawlingStatus.builder()
+                    .isReviewed(true)
+                    .cafeExists(true) // 이 단계까지 온 cafe는 naver place에 존재하는 카페
+                    .reviews(null) // ! reviews 만들고 뒤에서 세팅할 것임
+                    .cafe(foundCafe) // cafe 그대로 넣어주면 중복 에러 발생
+                    .build();
+            savedReviewCrawlingStatus = reviewStatusService.saveReviewCrawlingStatus(foundCafe, true);
+        } else {
+            savedReviewCrawlingStatus = reviewStatusRepository.findByCafeAndIsReviewed(foundCafe, true);
+            log.info("review crawling status already saved to DB : {}", cafe.getName());
+        }
 
         // Review Entity DB 저장(reviewImages는 뒤에서 설정)
         Review reviewEntity = Review
@@ -236,23 +249,30 @@ public class ReviewCrawler implements CommandLineRunner {
             log.info("saving review images to DB : {}", cafe.getName());
             // 사진이 있으면,reviewImages 엔티티 만들고 리뷰 ENTITY의 이미지 변경해주기
             Review foundReview = reviewService.findById(savedReview.getId()).orElseThrow();
+
             imageUrls.forEach(imageUrl -> {
                 ReviewImage reviewImage = ReviewImage.builder()
                         .review(foundReview)
                         .imageUrl(imageUrl)
                         .build();
                 // db에 저장
-                ReviewImage savedImage = reviewImageService.save(reviewImage);
+                ReviewImage savedReviewImage = reviewImageService.save(reviewImage);
 
                 // review 엔터티에서 reviewImage 갈아주기
-                log.info("여기인가1111111");
-                Review foundReview2 = reviewService.findById(savedReview.getId()).orElseThrow();
-                log.info("여기인가2222222222");
-                log.info("foundReview2 {}", foundReview2);
-                ReviewImage savedReviewImage = reviewImageRepository.findById(savedReview.getId()).orElseThrow();
-                log.info("savedReviewImage: {}", savedReviewImage);
                 log.info("여기인가333333");
-                foundReview2.addReviewImage(savedReviewImage);
+                Review targetReview = reviewService.findByIdWithReviewImages(foundReview.getId());
+                log.info("{}", targetReview.getReviewImages());
+                List<ReviewImage> priorReviewImages = targetReview.getReviewImages();
+                priorReviewImages.add(reviewImageRepository.findById(savedReviewImage.getId()).orElseThrow());
+                log.info("{}", priorReviewImages);
+                log.info("여기인가4444");
+
+                reviewService.findByIdWithReviewImages(foundReview.getId())
+                        .setReviewImages(priorReviewImages);
+                // 변경 사항을 데이터베이스에 반영하기 위해 리뷰 엔터티 다시 저장
+                log.info("여기인가 555");
+                reviewService.save(foundReview);
+                log.info("오예");
             });
 
         }

@@ -30,9 +30,13 @@ public class ReviewStatusService {
                 .cafe(foundCafe)
                 .build();
 
-        ReviewCrawlingStatus savedReviewCrawlingStatus = reviewStatusRepository.save(status);
-        return savedReviewCrawlingStatus;
+        return reviewStatusRepository.save(status);
 
+    }
+
+
+    public boolean existsByCafeAndIsReviewed(Cafe cafe, boolean isReviewed) {
+        return reviewStatusRepository.existsByCafeAndIsReviewed(cafe, isReviewed);
     }
 
 
