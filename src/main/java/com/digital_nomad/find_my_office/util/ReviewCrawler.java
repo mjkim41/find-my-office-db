@@ -1,8 +1,18 @@
 package com.digital_nomad.find_my_office.util;
 
+import com.digital_nomad.find_my_office.domain.cafe.entity.Cafe;
+import com.digital_nomad.find_my_office.domain.cafe.entity.Review;
+import com.digital_nomad.find_my_office.domain.cafe.entity.ReviewCrawlingStatus;
+import com.digital_nomad.find_my_office.domain.cafe.entity.ReviewImage;
 import com.digital_nomad.find_my_office.exception.CrwalingException;
 import com.digital_nomad.find_my_office.exception.ErrorCode;
+import com.digital_nomad.find_my_office.repository.CafeRepository;
+import com.digital_nomad.find_my_office.repository.ReviewImageRepository;
+import com.digital_nomad.find_my_office.repository.ReviewStatusRepository;
 import com.digital_nomad.find_my_office.service.CafeService;
+import com.digital_nomad.find_my_office.service.ReviewImageService;
+import com.digital_nomad.find_my_office.service.ReviewService;
+import com.digital_nomad.find_my_office.service.ReviewStatusService;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -24,9 +34,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.Optional;
 
 // 리뷰 크롤링을 위해 WebDriver 불러오는 클래스
 @Slf4j
@@ -38,6 +49,12 @@ public class ReviewCrawler implements CommandLineRunner {
     private static final String REVIEW_CRAWLING_EXECUTED = "src/main/java/com/digital_nomad/find_my_office/isFirstRun/reviewCrawlingExecuted.txt";
 
     private final CafeService cafeService;
+    private final ReviewStatusService reviewStatusService;
+    private final ReviewService reviewService;
+    private final CafeRepository cafeRepository;
+    private final ReviewImageService reviewImageService;
+    private final ReviewImageRepository reviewImageRepository;
+    private final ReviewStatusRepository reviewStatusRepository;
 
     // 어프리케이션 실행 시 txt 파일 실행 여부에 따라, txt 파일 없으면(=처음 실행히면) 리뷰 크롤링 하도록 설정
     @Override
@@ -48,21 +65,12 @@ public class ReviewCrawler implements CommandLineRunner {
 
         // 2. 파일이 존재하지 않으면 처음 실행인 것으로 판단하고 처리
         if (!flag.exists()) {
+            log.info("====== 리뷰 크롤링 데이터 없음(flag 파일 없음)========");
             setUpAndStartCrawling();
             createReviewCrawlingFlagFile(flag); //review crwaling 끝난 후에, 완료 증거로 file 생성 -> 다음부터는 csv parsing 과정 생략됨
-            log.info("===========");
-            log.info("===========");
-            log.info("===파일 없음========");
-            log.info("===========");
-            log.info("===========");
         } else {
             // 이미 실행된 경우 메시지 출력
             log.info("Review crawling already completed.");
-            log.info("===========");
-            log.info("===========");
-            log.info("=====파일 이미 있음======");
-            log.info("===========");
-            log.info("===========");
         }
     }
 
@@ -75,7 +83,7 @@ public class ReviewCrawler implements CommandLineRunner {
         }
     }
 
-    public static WebDriver getDriver() {
+    public WebDriver getDriver() {
 
         // 1. chromedriver 경로 설정 (드라이버 파일 프로젝트에 저장해두었음)
         Path path = Paths.get("src/main/resources/driver/chromedriver132.exe");
@@ -93,68 +101,50 @@ public class ReviewCrawler implements CommandLineRunner {
         return new ChromeDriver(options);
     }
 
-
-
-    // ## 테스트용
-    static class StoreForTest {
-
-        String storeName;
-        String newAddress;
-
-        public StoreForTest(String storeName, String newAddress) {
-            this.storeName = storeName;
-            this.newAddress = newAddress;
-        }
-
-    }
-
     @SneakyThrows
     public void setUpAndStartCrawling() {
 
-        // 테스트용 : 크롤링할 업체 목록
-        List<StoreForTest> stores = new ArrayList<>();
-        stores.add(new StoreForTest("아더", "서울특별시 마포구 망원동 406-19"));
-        stores.add(new StoreForTest("다인스카페", "서울특별시 종로구 연지동 1-1"));
+        // 테스트용 : 서울특별시 업체만 고름
+        List<Cafe> stores = cafeService.getCafeByProvinceName("서울특별시");
 
+        // 드라이버 준비
         WebDriver driver = getDriver();
 
         // 크롤링 시작
-        startCrawling(driver, stores);
+        doCrawling(driver, stores);
 
     }
 
 
     // 본격적으로 크롤링 시작
-    private static void startCrawling(WebDriver driver, List<StoreForTest> stores) throws Exception {
+    private void doCrawling(WebDriver driver, List<Cafe> stores) throws Exception {
 
-        for (StoreForTest store : stores) {// url 주소로 변환
+        for (Cafe store : stores) {
 
-            String reviewUrl = getReviewUrl(store);
+            String reviewUrl = getReviewUrl(store); // 리뷰용 주소 반환
+            log.info("============= start crawling: {}================", store.getName());
+            driver.get(reviewUrl);   // url 접속
+            // 리뷰 탭으로 이동(작업 성공여부를 boolean으로 반환 - false일 시 업체가 존재하지 않음. 기타 에러는 exception 발생)
+            boolean flag = navigateToReviewTab(driver, reviewUrl, store);
 
-            // url 접속
-            log.info("start crawling: {}", store.storeName);
-            driver.get(reviewUrl);
-
-            // 리뷰 탭으로 이동(작업 성공여부를 boolean으로 반환)
-            boolean flag = navigateToReviewTab(driver, reviewUrl);
-
-            // 위 작업 성공했으면, 리뷰 더보기 클릭하여 리뷰 모두 불러오기
+            // naver place 에서 업체 조회안되었으면 : db에 없는 업체라고 저장
             if (!flag) {
-                // 없는 업체일 떄의 로직
-                log.info("{} 업체 네이버에 등록 안됨", store.storeName);
+                reviewStatusService.saveReviewCrawlingStatus(store, false);
+                log.info("Review Crawling Status DB Updated(Place not found on Naver place page)");
             } else {
                 scrollAndLoadAllReviews(driver, store);
                 crawlLoadedReviews(driver, store);
             }
 
+            log.info("============= end of crawling: {}================", store.getName());
+
         }
     }
 
     // 로딩된 리뷰를 수집
-    private static void crawlLoadedReviews(WebDriver driver, StoreForTest store) {
+    private void crawlLoadedReviews(WebDriver driver, Cafe store) {
 
-        log.info("crwalLoadedReview: {}", store.storeName);
-
+        log.info("crwalLoadedReview: {}", store.getName());
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(5));
 
         // reviewsContainer 태그 찾기 (<li class="place_apply_pui>를 감싸는 ul 태그)
@@ -164,61 +154,148 @@ public class ReviewCrawler implements CommandLineRunner {
         // reviewsContainer의 각 review li 태그 찾기  (<li class="place_apply_pui>)
         List<WebElement> reviewItems = reviewsContainer.findElements(By.xpath(".//li[contains(@class, 'place_apply_pui')]"));
 
-        // 각각의 review (li 태그)에서, 리뷰 내용 추출
+        // 업체 모든 리뷰를 리스트로 전달하기 위해, extractReviewDetails에 전달할 리스트
+        List<Review> reviewList = new ArrayList<>();
+        // 각각의 review (li 태그)에서, 리뷰 내용 추출 -> DB에 저장(업체 단위로 한 번에 저장됨)
         for (WebElement reviewItem : reviewItems) {
-            extractReviewDetails(reviewItem, driver);
+            extractReviewDetails(reviewItem, driver, reviewList, store);
         }
-
     }
 
-    // review를 담은 li 태그에서 각각의 상세 내용 추출
-    private static void extractReviewDetails(WebElement reviewItem, WebDriver driver) {
+    /**
+     * review를 담은 각각의 li 태그에서 각각의 상세 내용 추출하여 리스트로 반환
+     *
+     * @param reviewItem - 각각의 리뷰를 담은 부모 태그
+     * @param driver     - chrome driver
+     * @param reviewList - 리뷰 리스트를 담기 위해, 빈 배열을 부모 메소드에서 전달하였음
+     * @param store      - 카페
+     */
+    private void extractReviewDetails(WebElement reviewItem, WebDriver driver, List<Review> reviewList, Cafe store) {
 
         String reviewer;
         List<String> imageUrls = new ArrayList<>();  // 사진 URL들을 저장할 리스트
         String reviewText;
-        String reviewDate;
+        LocalDate reviewDate;
 
         // 사진 있는지 확인(여부가 따라 태그 경로 달라짐)
         boolean hasPhotosFlag = hasPhotos(reviewItem, driver);
 
-        reviewer = extractReviewer(reviewItem);
+        reviewer = extractReviewer(reviewItem); // 리뷰어 추출
+        imageUrls = extractImageUrls(reviewItem);         // 사진 url 추출
+        reviewText = extractReviewText(reviewItem, hasPhotosFlag);         // 리뷰 내용 추출+
+        String reviewDateInString = extractReviewDate(reviewItem, hasPhotosFlag);       // 리뷰 작성일 추출
 
-        // 사진 url 추출
-        imageUrls = extractImageUrls(reviewItem);
-
-        // 리뷰 내용 추출
-        reviewText = extractReviewText(reviewItem, hasPhotosFlag);
-
-        // 리뷰 작성일 추출
-        reviewDate = extractReviewDate(reviewItem, hasPhotosFlag);
-
-
-        // 수집한 리뷰 출력 (나중에 DB 저장 등으로 확장 가능)
-        System.out.println("=======================");
-        System.out.println("Reviewer: " + reviewer);
-        System.out.println("Review Text: " + reviewText);
-        System.out.println("Review Date: " + reviewDate);
-
-        // 저장된 이미지 URL들 출력
-        for (String imageUrl : imageUrls) {
-            System.out.println("Image URL: " + imageUrl);
+        // 만약 리뷰일자가 2021.10 이전이라서 review 태그의 틀이 다르면, 크롤링에서 제외하기 위해 null 반환
+        if ("2021.10 이전 리뷰. 크롤링에서 제외".equals(reviewDateInString)) {
+            log.info("2021.10 이전 리뷰. 크롤링에서 제외");
+            return;
         }
-        System.out.println("=======================");
+
+        // 날짜 형식 변환
+        reviewDate = changeReviewDateToTextDateForm(reviewDateInString);
+
+        // 리뷰를 review 엔티티로 반환(review crwaling status, review image entity 정보까지 포함)
+        saveReviewToDB(store, reviewer, imageUrls, reviewText, reviewDate);
+
     }
 
-    private static String extractReviewDate(WebElement reviewItem, boolean hasPhotosFlag) {
-        // 사진이 있는 경우
-        if (hasPhotosFlag) {
-            // 방문일자 : reviewItem > 7번째 div > 2번째 div > 첫번쨰 div > 1번째 span > 클래스 이름이 'pui__blind'이고 내용이 '방문일'이 아닌 span 태그
-            return reviewItem.findElement(By.xpath("./div[7]/div[2]/div[1]//span[@class='pui__blind' and not(text()='방문일')]")).getText();
+    private void saveReviewToDB(Cafe cafe, String reviewer, List<String> imageUrls, String reviewText, LocalDate reviewDate) {
+
+        log.info("staring saveReviewToDB Method : {}", cafe.getName());
+
+        Cafe foundCafe = cafeRepository.findById(cafe.getId()).orElseThrow();
+
+        log.info("saving review crwaling status to DB : {}", cafe.getName());
+        // review status db 저장
+        ReviewCrawlingStatus reviewCrawlingStatus = ReviewCrawlingStatus.builder()
+                .isReviewed(true)
+                .cafeExists(true) // 이 단계까지 온 cafe는 naver place에 존재하는 카페
+                .reviews(null) // ! reviews 만들고 뒤에서 세팅할 것임
+                .cafe(foundCafe) // cafe 그대로 넣어주면 중복 에러 발생
+                .build();
+
+        ReviewCrawlingStatus savedReviewCrawlingStatus = reviewStatusService.saveReviewCrawlingStatus(foundCafe, true);
+
+        // Review Entity DB 저장(reviewImages는 뒤에서 설정)
+        Review reviewEntity = Review
+                .builder()
+                .reviewCrawlingStatus(reviewStatusRepository.findById(savedReviewCrawlingStatus.getId()).orElseThrow())
+                .reviewer(reviewer)
+                .reviewImages(null) // ! 뒤에서 설정
+                .content(reviewText)
+                .date(reviewDate)
+                .build();
+
+        log.info("saving review to DB : {}", cafe.getName());
+        Review savedReview = reviewService.save(reviewEntity);
+
+        // reviewImage 엔터티 만들기
+        boolean hasPhotoReviews = storeHasPhotoReviews(imageUrls);
+        List<ReviewImage> reviewImagesEntities = new ArrayList<>();
+        if (hasPhotoReviews) {
+            log.info("saving review images to DB : {}", cafe.getName());
+            // 사진이 있으면,reviewImages 엔티티 만들고 리뷰 ENTITY의 이미지 변경해주기
+            Review foundReview = reviewService.findById(savedReview.getId()).orElseThrow();
+            imageUrls.forEach(imageUrl -> {
+                ReviewImage reviewImage = ReviewImage.builder()
+                        .review(foundReview)
+                        .imageUrl(imageUrl)
+                        .build();
+                // db에 저장
+                ReviewImage savedImage = reviewImageService.save(reviewImage);
+
+                // review 엔터티에서 reviewImage 갈아주기
+                log.info("여기인가1111111");
+                Review foundReview2 = reviewService.findById(savedReview.getId()).orElseThrow();
+                log.info("여기인가2222222222");
+                log.info("foundReview2 {}", foundReview2);
+                ReviewImage savedReviewImage = reviewImageRepository.findById(savedReview.getId()).orElseThrow();
+                log.info("savedReviewImage: {}", savedReviewImage);
+                log.info("여기인가333333");
+                foundReview2.addReviewImage(savedReviewImage);
+            });
+
+        }
+    }
+
+    // imageUrls이 빈 리스트이면 false, 아니면 true
+    private boolean storeHasPhotoReviews(List<String> imageUrls) {
+        if (imageUrls.isEmpty()) {
+            return false;
         } else {
-            // 방문일자 : reviewItem > 6번째 div > 2번째 div > 첫번쨰 div > 1번째 span > 클래스 이름이 'pui__blind'이고 내용이 '방문일'이 아닌 span 태그
-            return reviewItem.findElement(By.xpath("./div[6]/div[2]/div[1]//span[@class='pui__blind' and not(text()='방문일')]")).getText();
+            return true;
         }
     }
 
-    private static String extractReviewText(WebElement reviewItem, boolean hasPhotosFlag) {
+
+
+
+    // 0000년 0월 0일 형식의 날짜를 LocalDate 으로 변환
+    private LocalDate changeReviewDateToTextDateForm(String reviewDateInText) {
+        String[] dateParts = reviewDateInText.split("\\s*[년|월|일]\\s*");
+        int year = Integer.parseInt(dateParts[0].trim());
+        int month = Integer.parseInt(dateParts[1].trim());
+        int date = Integer.parseInt(dateParts[2].trim());
+        return LocalDate.of(year, month, date);
+    }
+
+    private String extractReviewDate(WebElement reviewItem, boolean hasPhotosFlag) {
+
+        try {
+           // 사진이 있는 경우
+           if (hasPhotosFlag) {
+               // 방문일자 : reviewItem > 7번째 div > 2번째 div > 첫번쨰 div > 1번째 span > 클래스 이름이 'pui__blind'이고 내용이 '방문일'이 아닌 span 태그
+               return reviewItem.findElement(By.xpath("./div[7]/div[2]/div[1]//span[@class='pui__blind' and not(text()='방문일')]")).getText();
+           } else {
+               // 방문일자 : reviewItem > 6번째 div > 2번째 div > 첫번쨰 div > 1번째 span > 클래스 이름이 'pui__blind'이고 내용이 '방문일'이 아닌 span 태그
+               return reviewItem.findElement(By.xpath("./div[6]/div[2]/div[1]//span[@class='pui__blind' and not(text()='방문일')]")).getText();
+           }
+       } catch (NoSuchElementException e) {
+           return  "2021.10 이전 리뷰. 크롤링에서 제외";
+       }
+    }
+
+    private String extractReviewText(WebElement reviewItem, boolean hasPhotosFlag) {
         // 사진이 있는 경우
         if (hasPhotosFlag) {
             // 리뷰 내용 : reviewItem > 5번째 div > a 태그의 내용
@@ -229,7 +306,7 @@ public class ReviewCrawler implements CommandLineRunner {
         }
     }
 
-    private static List<String> extractImageUrls(WebElement reviewItem) {
+    private List<String> extractImageUrls(WebElement reviewItem) {
 
         List<WebElement> reviewImages = reviewItem.findElements(By.xpath(".//div[2]//div//div//div//div//div//a[contains(@class, 'place_thumb')]//img"));
         List<String> imageUrls = new ArrayList<>();
@@ -241,7 +318,7 @@ public class ReviewCrawler implements CommandLineRunner {
     }
 
     // 작성자 : reviewItem > 첫번째 div > 두번쨰 a 태그 > div > span > span 태그의 내용
-    private static String extractReviewer(WebElement reviewItem) {
+    private String extractReviewer(WebElement reviewItem) {
         return reviewItem.findElement(By.xpath(".//div[1]//a[2]//div//span//span")).getText();
     }
 
@@ -252,7 +329,7 @@ public class ReviewCrawler implements CommandLineRunner {
      * @param driver
      * @return 이미지 있는지 여부
      */
-    private static boolean hasPhotos(WebElement reviewItem, WebDriver driver) {
+    private boolean hasPhotos(WebElement reviewItem, WebDriver driver) {
 
         // ===== 시작 : 레이지로딩 제거 =========
         JavascriptExecutor js = (JavascriptExecutor) driver;
@@ -282,15 +359,16 @@ public class ReviewCrawler implements CommandLineRunner {
             }
         // 이미지 없을 때 발생하는 에러
         } catch (TimeoutException | InterruptedException e) {
-            log.info("No images found within the specified wait time.");
+//            log.info("No images found within the specified wait time.");
             return false;
         }
     }
 
 
     // 더보기 버튼 클릭하여 리뷰 모두 불러오기
-    private static void scrollAndLoadAllReviews(WebDriver driver, StoreForTest store) throws Exception {
+    private void scrollAndLoadAllReviews(WebDriver driver, Cafe store) throws Exception {
 
+        log.info("scrollAndLoadAllReviews method implementing for : {}", store.getName());
         try {
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(5));
             JavascriptExecutor js = (JavascriptExecutor) driver;
@@ -328,9 +406,9 @@ public class ReviewCrawler implements CommandLineRunner {
             } // end of While
         } catch (Exception e) {
             log.warn("리뷰 스크롤링 중 오류 발생: {}", e.getMessage());
-            throw new CrwalingException(ErrorCode.REVIEW_BUTTON_NOT_FOUND, String.format("Review Button not found(%s)", store.storeName));
+            throw new CrwalingException(ErrorCode.REVIEW_BUTTON_NOT_FOUND, String.format("Review Button not found(%s)", store.getName()));
         }
-        log.info("{} 업체 리뷰 전체 스크롤 완료", store.storeName);
+        log.info("{} 업체 리뷰 전체 스크롤 완료", store.getName());
     }
 
     /**
@@ -339,7 +417,7 @@ public class ReviewCrawler implements CommandLineRunner {
      * @param reviewUrl
      * @return 작업 성공여부(review button이 있는지에 따라 판단)
      */
-    private static boolean navigateToReviewTab(WebDriver driver, String reviewUrl) throws Exception {
+    private boolean navigateToReviewTab(WebDriver driver, String reviewUrl, Cafe store) throws Exception {
 
         // 장소가 있는지 확인(리뷰버튼 생겼는지 확인)
         try {
@@ -358,7 +436,7 @@ public class ReviewCrawler implements CommandLineRunner {
 
         // 없는 업체인 경우 : entryIframe를 찾지 못하여 timeoutexception 발생 : false 반환
         } catch (TimeoutException e) {
-            log.info("{} not found on Naver place (No reviews button found){}", reviewUrl);
+            log.info("The store doesn't exist on Naver place (No reviews button found){}", store.getName());
             return false;
         } catch (Exception e) {
             log.warn("Error while crawling {}: {}", reviewUrl, e.getMessage());
@@ -367,10 +445,10 @@ public class ReviewCrawler implements CommandLineRunner {
     }
 
     // 리뷰할 업체의 상호명 + 주소를 담은 객체를 전달해 주면, naver 리뷰 검색용 주소 생성
-    private static String getReviewUrl(StoreForTest store) {
+    public String getReviewUrl(Cafe store) {
         try {
-            String encodedStoreName = URLEncoder.encode(store.storeName, StandardCharsets.UTF_8.toString()); // 공백포함용으로 인코딩
-            String encodedNewAddress = URLEncoder.encode(store.newAddress, StandardCharsets.UTF_8.toString()); // 공백포함용으로 인코딩
+            String encodedStoreName = URLEncoder.encode(store.getName(), StandardCharsets.UTF_8.toString()); // 공백포함용으로 인코딩
+            String encodedNewAddress = URLEncoder.encode(store.getAddress().getNewAddress(), StandardCharsets.UTF_8); // 공백포함용으로 인코딩
 
             return String.format("https://map.naver.com/p/search/%s%%20%s", encodedStoreName, encodedNewAddress);
         } catch (Exception e) {

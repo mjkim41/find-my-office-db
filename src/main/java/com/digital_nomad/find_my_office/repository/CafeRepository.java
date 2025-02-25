@@ -10,6 +10,6 @@ import java.util.List;
 @Repository
 public interface CafeRepository extends JpaRepository<Cafe, String>, CafeRepositoryCustom {
 
-    List<Cafe> findByAddress_ProvinceName(String provinceName);
 
 }
+

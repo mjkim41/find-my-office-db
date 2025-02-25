@@ -64,6 +64,6 @@ public class CafeService {
 
     // 특정 시도(광역시 :시, 나머지: 도)에 속한 카페 리스트 반환
     public List<Cafe> getCafeByProvinceName(String provinceName) {
-        return cafeRepository.findByAddress_ProvinceName(provinceName);
+        return cafeRepository.findByAddressProvinceName(provinceName);
     }
 }

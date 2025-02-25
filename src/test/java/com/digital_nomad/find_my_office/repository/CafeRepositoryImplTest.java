@@ -1,5 +1,6 @@
 package com.digital_nomad.find_my_office.repository;
 
+import com.digital_nomad.find_my_office.domain.cafe.entity.Cafe;
 import com.digital_nomad.find_my_office.domain.cafe.entity.QAddress;
 import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -35,6 +36,17 @@ class CafeRepositoryImplTest {
                 .fetch();
 
         fetch.forEach(System.out::println);
+    }
+
+    @Test
+    @DisplayName("cafe entity를 조회하면, address 까지 함께 조회된다.")
+    void cafeAddress() {
+
+        String provinceName = "서울특별시";
+
+        List<Cafe> byAddressProvinceName = cafeRepository.findByAddressProvinceName(provinceName);
+
+        byAddressProvinceName.forEach(System.out::println);
     }
 
 }

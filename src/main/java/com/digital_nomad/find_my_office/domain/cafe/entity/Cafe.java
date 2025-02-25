@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 
 @Getter
 @Setter
+//@ToString
 @ToString(exclude = {"address"})
 @AllArgsConstructor
 @NoArgsConstructor
@@ -32,6 +33,9 @@ public class Cafe {
 
     @CreationTimestamp
     LocalDateTime createdAt;
+
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "cafe", cascade = CascadeType.ALL, orphanRemoval = true)
+    private ReviewCrawlingStatus reviewCrawlingStatus;
 
     public void changeAddress(Address address) {
         this.address = address;
