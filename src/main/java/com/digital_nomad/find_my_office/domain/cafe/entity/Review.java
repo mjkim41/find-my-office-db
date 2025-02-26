@@ -32,7 +32,7 @@ public class Review {
     @Setter
     private List<ReviewImage> reviewImages = new ArrayList<>();
 
-    @Column(nullable = true, name="review_content")
+    @Column(nullable = true, name="review_content", columnDefinition = "TEXT")
     private String content;
 
     @Column(nullable = false, name="review_date")

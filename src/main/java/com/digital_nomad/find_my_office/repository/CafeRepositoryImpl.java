@@ -1,9 +1,7 @@
 package com.digital_nomad.find_my_office.repository;
 
-import com.digital_nomad.find_my_office.domain.cafe.entity.Address;
-import com.digital_nomad.find_my_office.domain.cafe.entity.Cafe;
-import com.digital_nomad.find_my_office.domain.cafe.entity.QAddress;
-import com.digital_nomad.find_my_office.domain.cafe.entity.QCafe;
+import com.digital_nomad.find_my_office.domain.cafe.entity.*;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
@@ -12,10 +10,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static com.digital_nomad.find_my_office.domain.cafe.entity.QAddress.address;
 import static com.digital_nomad.find_my_office.domain.cafe.entity.QCafe.cafe;
+import static com.digital_nomad.find_my_office.domain.cafe.entity.QReviewCrawlingStatus.*;
 
 @RequiredArgsConstructor
 @Repository
@@ -46,11 +46,20 @@ public class CafeRepositoryImpl implements CafeRepositoryCustom {
     @Transactional(readOnly = true)
     public List<Cafe> findByAddressProvinceName(String provinceName) {
 
+        // 서울특별시 -> 이미 크롤링 된 업체 제외
+
         List<Cafe> fetch = jpaQueryFactory
                 .selectFrom(cafe)
                 .innerJoin(cafe.address, address)
                 .fetchJoin()
-                .where(address.provinceName.eq(provinceName))
+                .where(address.provinceName.eq(provinceName)
+                        .and(cafe.id.notIn(
+                                JPAExpressions
+                                        .select(cafe.id)
+                                        .from(cafe)
+                                        .innerJoin(cafe.reviewCrawlingStatus, reviewCrawlingStatus)
+                                        .where(cafe.id.eq(reviewCrawlingStatus.cafe.id))
+                        )))
                 .orderBy(cafe.id.asc())
                 .fetch();
 
