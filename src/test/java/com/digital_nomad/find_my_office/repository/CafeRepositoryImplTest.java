@@ -49,4 +49,12 @@ class CafeRepositoryImplTest {
         byAddressProvinceName.forEach(System.out::println);
     }
 
+    @Test
+    @DisplayName("서울특별시의 크롤링 완료된 업체만 나온다.")
+    void cafeInSeoulNoCrawling() {
+
+        List<Cafe> seoulCafes = cafeRepository.findByAddressProvinceName("서울특별시");
+
+        seoulCafes.forEach(System.out::println);
+    }
 }
