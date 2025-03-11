@@ -92,7 +92,7 @@ public class ReviewCrawler implements CommandLineRunner {
     public WebDriver getDriver() {
 
         // 1. chromedriver 경로 설정 (드라이버 파일 프로젝트에 저장해두었음)
-        Path path = Paths.get("src/main/resources/driver/chromedriver132.exe");
+        Path path = Paths.get("src/main/resources/driver/chromedriver134.exe");
         String absolutePath = path.toAbsolutePath().toString();
         System.out.println(absolutePath); // 경로 제대로 설정되었는지 확인
 
@@ -251,6 +251,7 @@ public class ReviewCrawler implements CommandLineRunner {
             Review foundReview = reviewService.findById(savedReview.getId()).orElseThrow();
 
             imageUrls.forEach(imageUrl -> {
+
                 ReviewImage reviewImage = ReviewImage.builder()
                         .review(foundReview)
                         .imageUrl(imageUrl)
@@ -260,10 +261,8 @@ public class ReviewCrawler implements CommandLineRunner {
 
                 // review 엔터티에서 reviewImage 갈아주기
                 Review targetReview = reviewService.findByIdWithReviewImages(foundReview.getId());
-                log.info("{}", targetReview.getReviewImages());
                 List<ReviewImage> priorReviewImages = targetReview.getReviewImages();
                 priorReviewImages.add(reviewImageRepository.findById(savedReviewImage.getId()).orElseThrow());
-                log.info("{}", priorReviewImages);
 
                 reviewService.findByIdWithReviewImages(foundReview.getId())
                         .setReviewImages(priorReviewImages);
@@ -312,14 +311,19 @@ public class ReviewCrawler implements CommandLineRunner {
     }
 
     private String extractReviewText(WebElement reviewItem, boolean hasPhotosFlag) {
-        // 사진이 있는 경우
-        if (hasPhotosFlag) {
-            // 리뷰 내용 : reviewItem > 5번째 div > a 태그의 내용
-            return reviewItem.findElement(By.xpath(".//div[5]//a")).getText();
-        } else {
-            // 리뷰 내용 : reviewItem > 4번째 div > a 태그의 내용
-            return reviewItem.findElement(By.xpath(".//div[4]//a")).getText();
+        try {
+            // 사진이 있는 경우
+            if (hasPhotosFlag) {
+                // 리뷰 내용 : reviewItem > 5번째 div > a 태그의 내용
+                return reviewItem.findElement(By.xpath(".//div[5]//a")).getText();
+            } else {
+                // 리뷰 내용 : reviewItem > 4번째 div > a 태그의 내용
+                return reviewItem.findElement(By.xpath(".//div[4]//a")).getText();
+            }
+        } catch (NoSuchElementException e) {
+            return  "2021.10 이전 리뷰. 크롤링에서 제외";
         }
+
     }
 
     private List<String> extractImageUrls(WebElement reviewItem) {
